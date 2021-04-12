@@ -12,11 +12,11 @@ class Monochromatic_Experiment:
         #Coordinate space coordinates
         self.x = np.linspace(-size/2, size/2, N)
         self.y = np.linspace(-size/2, size/2, N)
-        self.X, Y = np.meshgrid(self.x, self.y)
+        self.X, self.Y = np.meshgrid(self.x, self.y)
 
         #Frequency space coordinates
-        kx = np.linspace(-2*np.pi * N, -2*np.pi, N)
-        ky = np.linspace(-2*np.pi * N, -2*np.pi, N)
+        kx = np.linspace(-2*np.pi * N//2/size, 2*np.pi*N//2 /size, N)
+        ky = np.linspace(-2*np.pi * N//2 /size, 2*np.pi*N//2 /size, N)
         self.Kx, self.Ky = np.meshgrid(kx, ky)
 
         self.slit = np.zeros((N, N))
@@ -67,14 +67,17 @@ class Monochromatic_Experiment:
         Returns:
         self.N x self.N array of intensities to be plotted"""
 
-        fourier_at_0 = self.fourier_transform()
-        fourier_at_z = fft.fftshift(self.propagate(Z, fourier_at_0))
-        field = fft.ifft2(fourier_at_z)
+        fourier_at_0 = self.fourier_transform() #Calculate the Fourier transform of the signal (Field at z=0)
+        fourier_at_Z = self.propagate(Z, fourier_at_0) #The Fourier transform of the field at z = Z.
+        #fourier_at_Z = fft.fftshift(fourier_at_Z) #Undo the shift
 
+        field = fft.ifft2(fourier_at_Z)
+        
         return self.intensity(field)
-
-
-
+    def evolve(self, Zmin, Zmax, N=100):
+        """Returns a list of the fields for different Z"""
+        for Z in np.linspace(Zmin, Zmax, N): #A stupidly complex way of changing Z
+            yield (self.field_at_Z(Z), Z)
 
 
 #Units definition
@@ -83,28 +86,27 @@ m = 1000*mm
 cm = 10*m
 nm = 1e-6 * mm
 
-N = 200 # pixels number
-size = 500 * mm # physical length of a square (extent_x = extent_y)
+N = 500 # pixels number
+size = 20 * mm # physical length of a square (extent_x = extent_y)
 
 
 wavelength = 600*nm
-Z = 1*m
 
+A = 10 #offset of the slits. Half the distance between the centers of the slits.
 exp = Monochromatic_Experiment(wavelength, N, size)
-exp.rectangle(30, 30, 100, 100)
-
-
+exp.rectangle(4, 100, N//2, N//2 - A)
+exp.rectangle(4, 100, N//2, N//2 + A)
 
 
 fig, ax = plt.subplots(1, 2)
 
 ax[0].imshow(exp.slit)
-for Z in range(100):
-    print(Z)
+
+for field, Z in exp.evolve(0, 400, 40):  
     ax[1].cla()
-    ax[1].imshow(exp.field_at_Z(50))
-    plt.pause(0.01)
-#plt.savefig('img.pdf')
+    ax[1].set_title(str(Z) + 'mm')
+    ax[1].imshow(field)
+    plt.pause(0.000001)
 plt.show()
 
 
