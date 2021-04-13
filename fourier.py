@@ -10,8 +10,8 @@ class Monochromatic_Experiment:
         self.wavelength = wavelength #Wavelength of the incoming wave
 
         #Coordinate space coordinates
-        self.x = np.linspace(-size/2, size/2, N)
-        self.y = np.linspace(-size/2, size/2, N)
+        self.x = np.linspace(0, size, N)
+        self.y = np.linspace(0, size, N)
         self.X, self.Y = np.meshgrid(self.x, self.y)
 
         #Frequency space coordinates
@@ -19,21 +19,42 @@ class Monochromatic_Experiment:
         ky = np.linspace(-2*np.pi * N//2 /size, 2*np.pi*N//2 /size, N)
         self.Kx, self.Ky = np.meshgrid(kx, ky)
 
-        self.slit = np.zeros((N, N))
+        self.slit = np.zeros((N, N)) + np.zeros((N, N))*1j #So we can add complex functions
+
+    def spherical_wave(self, r0):
+        """In case the wave comes from a source at a distance r0<\inf
+        """
+        E = np.exp(1j * 2 * np.pi/self.wavelength * np.sqrt(self.X**2 + self.Y**2+ r0**2))
+        self.slit *= E
 
     def rectangle(self, width, height, x0, y0):
-        """Adds a rectangular slit to the setup. All units in px.
+        """Adds a rectangular slit to the setup. All units in mm.
         Params:
         width: int
-            Width in pixels of the rectangular slit
+            Width in mm of the rectangular slit
         height: int
-            Height in pixels of the rectangular slit
+            Height in mm of the rectangular slit
         x0: int
             Horizontal position of the center of the recangular slit
         y0: int
             Vertical position of the center of the recangular slit
         """
-        self.slit[x0 - height//2:x0 + height//2, y0 - width//2:y0 + width//2] += 1
+        #second try: scaling
+        self.scale_factor = self.N//self.size
+        x0 *= self.scale_factor
+        y0 *= self.scale_factor
+        height *= self.scale_factor
+        width *= self.scale_factor
+        self.slit[x0 - height//2:x0 + height//2, int(y0 - width//2):int(y0 + width//2)] = 1+0j 
+        
+        #self.slit[x0 - height//2:x0 + height//2, y0 - width//2:y0 + width//2] = 1+0j 
+
+    def grid(self, width, height, x0, y0, N, offset):
+        for n in range(N):
+            exp.rectangle(width, height, self.N//2, self.N//2 - n*offset)
+            exp.rectangle(width, height, self.N//2, self.N//2 + n*offset)
+            exp.rectangle(height, width, self.N//2 - n*offset, self.N//2 )
+            exp.rectangle(height, width, self.N//2 + n*offset, self.N//2 )
 
     def propagate(self, Z, A):
         """
@@ -43,7 +64,7 @@ class Monochromatic_Experiment:
 
         Returns the forier transform A(kx, ky, Z)
         """
-        phase = np.exp(1j*Z*np.sqrt( (2*np.pi/self.wavelength)**2 - self.Kx**2 - self.Ky**2)) #Not 100% sure of this
+        phase = np.exp(1j*Z*np.sqrt( (2*np.pi/self.wavelength)**2 - self.Kx**2 - self.Ky**2)) 
         return A*phase
 
     def fourier_transform(self):
@@ -74,6 +95,7 @@ class Monochromatic_Experiment:
         field = fft.ifft2(fourier_at_Z)
         
         return self.intensity(field)
+
     def evolve(self, Zmin, Zmax, N=100):
         """Returns a list of the fields for different Z"""
         for Z in np.linspace(Zmin, Zmax, N): #A stupidly complex way of changing Z
@@ -86,27 +108,33 @@ m = 1000*mm
 cm = 10*m
 nm = 1e-6 * mm
 
-N = 500 # pixels number
-size = 20 * mm # physical length of a square (extent_x = extent_y)
+N = 200 # pixels number
+size = 10 * mm # physical length of a square (size_x = size_y)
 
+wavelength = 900*nm
 
-wavelength = 600*nm
+offset = 0.2 #offset of the slits. Half the distance between the centers of the slits.
+exp = Monochromatic_Experiment(wavelength, N, size, r0)
 
-A = 10 #offset of the slits. Half the distance between the centers of the slits.
-exp = Monochromatic_Experiment(wavelength, N, size)
-exp.rectangle(4, 100, N//2, N//2 - A)
-exp.rectangle(4, 100, N//2, N//2 + A)
+#exp.grid(2, 100, N//2, N//2, 30, 20)
+exp.rectangle(0.1, 9, size//2, size//2 + offset)
+exp.rectangle(0.1, 9, size//2, size//2 - offset)
+#exp.rectangle(50, 50, N//2, N//2)
+exp.spherical_wave(20)
 
+fig, ax = plt.subplots()
 
-fig, ax = plt.subplots(1, 2)
+ax.tick_params(left=False,
+                bottom=True,
+                labelleft=False,
+                labelbottom=True)
 
-ax[0].imshow(exp.slit)
+ax.imshow(exp.field_at_Z(1000))
 
-for field, Z in exp.evolve(0, 400, 40):  
-    ax[1].cla()
-    ax[1].set_title(str(Z) + 'mm')
-    ax[1].imshow(field)
-    plt.pause(0.000001)
+for field, Z in exp.evolve(0, 1000, 300):  
+    ax.cla()
+    ax.set_title('Distance: ' +str(int(Z)) + ' mm\nSide= ' + str(int(size)) + ' mm')
+    exp.r0 += Z 
+    ax.imshow(field)
+    plt.pause(0.0000001)
 plt.show()
-
-
