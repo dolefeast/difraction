@@ -66,9 +66,10 @@ class Monochromatic_Experiment:
         """ 
         Replicates a double slit experiment
         """
-        self.rectangle(width, height, self.size//2, self.size//2 + offset)
-        self.rectangle(width, height, self.size//2, self.size//2 - offset)
-    def fresnel_rings(self, Z, maxrings):
+        self.rectangle(width, height, self.size/2, self.size/2 + offset)
+        self.rectangle(width, height, self.size/2, self.size/2 - offset)
+
+    def fresnel_rings(self, Z, maxrings, sign=0):
         """Creates a filter given by the fresnel rings. 
         Params: 
         Z: float
@@ -84,7 +85,7 @@ class Monochromatic_Experiment:
             n += 1
 
         for m, rm in enumerate(radii):
-            self.slit += (np.sqrt((self.X - self.size//2)**2 + (self.Y - self.size//2)**2) < rm ) * (-1)**(m) * 0.5 + 0.5
+            self.slit += (np.sqrt((self.X - self.size//2)**2 + (self.Y - self.size//2)**2) < rm ) * (-1)**(m+sign**1) * 0.5 + 0.5
 
     def propagate(self, Z, A):
         """
@@ -127,53 +128,54 @@ class Monochromatic_Experiment:
         intensity = self.intensity(field)
         return intensity/intensity.max()
 
-    def evolve(self, Zmin, Zmax, N=100):
-        """Returns a list of the fields for different Z"""
-        for Z in np.linspace(Zmin, Zmax, N): #A stupidly complex way of changing Z
-            yield (self.field_at_Z(Z), Z)
+    def evolve(self, Zmin, Zmax, N=100, save=None):
+        fig, (ax1, ax2) = plt.subplots(2, 1)
+        
+        def animate(Z):
+            field = self.field_at_Z(Z)
+            ax1.cla()
+            ax1.set_title('Distance: ' +str(int(Z)) + ' mm\nSide = ' + str(int(self.size)) + ' mm, Wavelength = ' + str(self.wavelength*10**6) + ' nm')
+            ax1.plot(self.x, field[N//2, :])
+
+            ax2.cla()
+            ax2.imshow(field)
+
+        ani = FuncAnimation(fig, animate, frames=np.linspace(Zmin, Zmax, N), interval=1, repeat=False)
+        plt.show()
 
 
 
-N = 700 # pixels number
-size = 20 * mm # physical length of the experiment (size_x = size_y)
-#wavelength = 0.02*mm
-wavelength = 700*nm
 
-exp = Monochromatic_Experiment(wavelength, N, size)
 
-"""Double slit experiment"""
-a = 1
-L = 2000
-#exp.rectangle(a, a, size//2, size//2)
-#exp.double_slit(1, 40, 0.2)
+if __name__ == "__main__":
+    N = 700 # pixels number
+    size = 20 * mm # physical length of the experiment (size_x = size_y)
+    #wavelength = 0.02*mm
+    wavelength = 700*nm
 
-fig, ax = plt.subplots(2, 1)
+    exp = Monochromatic_Experiment(wavelength, N, size)
 
-ax[1].tick_params(left=False,
-                bottom=True,
-                labelleft=False,
-                labelbottom=True)
+    """Double slit experiment"""
+    a = 1
+    L = 2000
+    #exp.rectangle(a, a, size//2, size//2)
+    #exp.double_slit(1, 40, 0.2)
 
-#ax.imshow(exp.field_at_Z(1000))
-#field = exp.field_at_Z(L)
-#field0 = field[N//2, N//2]
-Z_fresnel=700
-exp.fresnel_rings(Z_fresnel, 100)
-#exp.spherical_wave(1000)
-ax[1].imshow(np.real(exp.slit))
-#ax[0].set_title('Distance: ' +str(int(L)) + ' mm\nSide = ' + str(int(size)) + ' mm')
+    fig, ax = plt.subplots(2, 1)
 
-def animate(Z):
-    field = exp.field_at_Z(Z)
-    ax[0].cla()
-    ax[0].set_title('Distance: ' +str(int(Z)) + ' mm\nSide = ' + str(int(size)) + ' mm, Wavelength = ' + str(wavelength*10**6) + ' nm')
-    ax[0].plot(exp.x, field[N//2, :])
+    Z_fresnel=700
+    exp.fresnel_rings(Z_fresnel, 100)
 
-    ax[1].cla()
-    ax[1].imshow(field)
+    def animate(Z):
+        field = exp.field_at_Z(Z)
+        ax[0].cla()
+        ax[0].set_title('Distance: ' +str(int(Z)) + ' mm\nSide = ' + str(int(size)) + ' mm, Wavelength = ' + str(wavelength*10**6) + ' nm')
+        ax[0].plot(exp.x, field[N//2, :])
 
-#ax[0].legend(loc='best')
+        ax[1].cla()
+        ax[1].imshow(field)
 
-ani = FuncAnimation(fig, animate, frames=np.linspace(Z_fresnel, Z_fresnel, 1), interval=1, repeat=False)
+    #ax[0].legend(loc='best')
 
-plt.show()
+    ani = FuncAnimation(fig, animate, frames=np.linspace(Z_fresnel, Z_fresnel, 1), interval=1, repeat=False)
+    plt.show()
