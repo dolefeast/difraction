@@ -3,7 +3,11 @@ from matplotlib.animation import FuncAnimation
 import scipy.fft as fft
 import numpy as np
 
-#print(FuncAnimation.__doc__)
+#Units definition
+mm = 1
+m = 1000 * mm
+cm = 10 * mm
+nm = 1e-6 * mm
 
 class Monochromatic_Experiment:
     def __init__(self, wavelength, N, size):
@@ -58,6 +62,12 @@ class Monochromatic_Experiment:
             exp.rectangle(height, width, self.N//2 - n*offset, self.N//2 )
             exp.rectangle(height, width, self.N//2 + n*offset, self.N//2 )
 
+    def double_slit(self, offset, height, width):
+        """ 
+        Replicates a double slit experiment
+        """
+        self.rectangle(width, height, self.size//2, self.size//2 + offset)
+        self.rectangle(width, height, self.size//2, self.size//2 - offset)
     def fresnel_rings(self, Z, maxrings):
         """Creates a filter given by the fresnel rings. 
         Params: 
@@ -67,14 +77,14 @@ class Monochromatic_Experiment:
         radii = [] #A list of the radii
         n = 1 #r0 = 0
         while True:
-            rm = n * self.wavelength * np.sqrt(2 * Z/n/self.wavelength + n**2 / 4) #Calculated by pythagoras
+            rm = n * self.wavelength * np.sqrt( Z/n/self.wavelength + n**2 / 4) #Calculated by pythagoras
             if rm > self.size//2 or n>maxrings:
                 break #I want every ring to be completely inside my square
             radii.append(rm)
             n += 1
 
         for m, rm in enumerate(radii):
-            self.slit += (np.sqrt((self.X - self.size//2)**2 + (self.Y - self.size//2)**2) < rm ) * (-1)**(m-1) * 0.5 + 0.5
+            self.slit += (np.sqrt((self.X - self.size//2)**2 + (self.Y - self.size//2)**2) < rm ) * (-1)**(m) * 0.5 + 0.5
 
     def propagate(self, Z, A):
         """
@@ -123,27 +133,19 @@ class Monochromatic_Experiment:
             yield (self.field_at_Z(Z), Z)
 
 
-#Units definition
-mm = 1
-m = 1000 * mm
-cm = 10 * mm
-nm = 1e-6 * mm
 
 N = 700 # pixels number
 size = 20 * mm # physical length of the experiment (size_x = size_y)
-
-wavelength = 600*nm
+#wavelength = 0.02*mm
+wavelength = 700*nm
 
 exp = Monochromatic_Experiment(wavelength, N, size)
 
 """Double slit experiment"""
 a = 1
 L = 2000
-offset = 0.2*mm #offset of the slits. Half the distance between the centers of the slits.
-#exp.grid(2, 100, N//2, N//2, 30, 20)
-#exp.rectangle(0.1, 9, size//2, size//2 + offset)
-#exp.rectangle(0.1, 9, size//2, size//2 - offset)
 #exp.rectangle(a, a, size//2, size//2)
+#exp.double_slit(1, 40, 0.2)
 
 fig, ax = plt.subplots(2, 1)
 
@@ -155,21 +157,23 @@ ax[1].tick_params(left=False,
 #ax.imshow(exp.field_at_Z(1000))
 #field = exp.field_at_Z(L)
 #field0 = field[N//2, N//2]
-exp.fresnel_rings(1000, 10)
+Z_fresnel=700
+exp.fresnel_rings(Z_fresnel, 100)
 #exp.spherical_wave(1000)
 ax[1].imshow(np.real(exp.slit))
-ax[0].set_title('Distance: ' +str(int(L)) + ' mm\nSide= ' + str(int(size)) + ' mm')
+#ax[0].set_title('Distance: ' +str(int(L)) + ' mm\nSide = ' + str(int(size)) + ' mm')
 
 def animate(Z):
     field = exp.field_at_Z(Z)
     ax[0].cla()
-    ax[0].set_title('Distance: ' +str(int(Z)) + ' mm\nSide= ' + str(int(size)) + ' mm')
-    ax[0].plot(exp.x, field[:, N//2])
+    ax[0].set_title('Distance: ' +str(int(Z)) + ' mm\nSide = ' + str(int(size)) + ' mm, Wavelength = ' + str(wavelength*10**6) + ' nm')
+    ax[0].plot(exp.x, field[N//2, :])
 
     ax[1].cla()
     ax[1].imshow(field)
 
-ani = FuncAnimation(fig, animate, frames=np.linspace(100, 200, 20), interval=1, repeat=False)
+#ax[0].legend(loc='best')
 
+ani = FuncAnimation(fig, animate, frames=np.linspace(Z_fresnel, Z_fresnel, 1), interval=1, repeat=False)
 
 plt.show()
